@@ -508,6 +508,129 @@
             animation: fadeInUp 0.6s ease-out;
         }
 
+        /* License Modal */
+        .license-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .license-modal.active {
+            display: flex;
+        }
+
+        .license-modal-content {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            animation: modalAppear 0.3s ease forwards;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes modalAppear {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .license-modal-content h3 {
+            margin: 0 0 20px 0;
+            font-size: 22px;
+            font-weight: 700;
+            color: #a0d2ff;
+        }
+
+        .license-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .license-terms {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .license-terms-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #a0d2ff;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .license-terms-text {
+            font-size: 11px;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+
+        .license-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .license-button {
+            flex: 1;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+        }
+
+        .license-button-accept {
+            background: linear-gradient(135deg, rgba(100, 181, 246, 0.3), rgba(100, 181, 246, 0.2));
+            border: 2px solid rgba(100, 181, 246, 0.5);
+            color: #ffffff;
+        }
+
+        .license-button-accept:hover {
+            background: linear-gradient(135deg, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.3));
+            border-color: rgba(100, 181, 246, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(100, 181, 246, 0.4);
+        }
+
+        .license-button-cancel {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .license-button-cancel:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -586,6 +709,26 @@
         </div>
 
         <a href="../" class="back-link">← Back to Links</a>
+    </div>
+
+    <!-- License Modal -->
+    <div class="license-modal" id="licenseModal">
+        <div class="license-modal-content">
+            <h3>License Agreement</h3>
+            <p class="license-text">
+                By downloading this file, you confirm that you accept the standard file license terms.
+            </p>
+            <div class="license-terms">
+                <div class="license-terms-title">License Restrictions</div>
+                <div class="license-terms-text">
+                    You are prohibited from sharing, sub-licensing, selling, renting, hosting, transferring, or distributing the digital file, 3D printed versions, or any other derivative works of this object in any digital or physical format, including remixes of this object.
+                </div>
+            </div>
+            <div class="license-buttons">
+                <button class="license-button license-button-cancel" id="licenseCancel">Cancel</button>
+                <button class="license-button license-button-accept" id="licenseAccept">I Accept & Download</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -705,13 +848,54 @@
                         loadSTLPreview(fileUrl);
                     }
 
-                    // Add click tracking (optional)
+                    // Add license modal and download handling
                     const downloadButton = document.getElementById('downloadButton');
+                    const licenseModal = document.getElementById('licenseModal');
+                    const licenseAccept = document.getElementById('licenseAccept');
+                    const licenseCancel = document.getElementById('licenseCancel');
+                    let downloadUrl = fileUrl;
+                    let downloadFileName = fileName.split('/').pop();
+
                     if (downloadButton) {
-                        downloadButton.addEventListener('click', function() {
+                        downloadButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            licenseModal.classList.add('active');
+                        });
+                    }
+
+                    if (licenseAccept) {
+                        licenseAccept.addEventListener('click', function() {
+                            licenseModal.classList.remove('active');
+                            // Start download
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = downloadFileName;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
                             console.log('Download started:', fileName);
                         });
                     }
+
+                    if (licenseCancel) {
+                        licenseCancel.addEventListener('click', function() {
+                            licenseModal.classList.remove('active');
+                        });
+                    }
+
+                    // Close modal when clicking outside
+                    licenseModal.addEventListener('click', function(e) {
+                        if (e.target === licenseModal) {
+                            licenseModal.classList.remove('active');
+                        }
+                    });
+
+                    // ESC key to close
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape' && licenseModal.classList.contains('active')) {
+                            licenseModal.classList.remove('active');
+                        }
+                    });
                 })
                 .catch(error => {
                     console.error('Error loading file:', error);
