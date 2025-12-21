@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/piodeer/LinkTree/392c8bf5eb91d04289f23203c18cde1a75bd345f/media/logo.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // STLLoader inline implementation (simplified version)
+        // STLLoader inline implementation
         (function() {
             if (typeof THREE === 'undefined') return;
             
@@ -82,7 +82,7 @@
                         normals.push(normal.x, normal.y, normal.z);
                         offset += 12;
                     }
-                    offset += 2; // Skip attribute byte count
+                    offset += 2;
                 }
                 
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -152,7 +152,6 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* Floating Particles Background */
         .particles {
             position: fixed;
             top: 0;
@@ -301,11 +300,21 @@
 
         .community-text {
             font-size: 18px;
-            margin-bottom: 40px;
+            margin-bottom: 16px;
             opacity: 0.9;
             font-weight: 500;
             animation: fadeInUp 1s ease-out 0.6s backwards;
             color: #a0d2ff;
+        }
+
+        .slogan-text {
+            font-size: 15px;
+            margin-bottom: 40px;
+            opacity: 0.75;
+            font-weight: 400;
+            font-style: italic;
+            animation: fadeInUp 1s ease-out 0.9s backwards;
+            letter-spacing: 0.5px;
         }
 
         @keyframes fadeInUp {
@@ -576,7 +585,7 @@
             <div class="loading">Loading file information</div>
         </div>
 
-        <a href="index%20(2).html" class="back-link">← Back to Links</a>
+        <a href="../" class="back-link">← Back to Links</a>
     </div>
 
     <script>
@@ -616,23 +625,38 @@
                     <div class="error-message">
                         <h3>No file specified</h3>
                         <p>Please provide a file name in the URL parameter.</p>
+                        <p style="margin-top: 16px; font-size: 12px; opacity: 0.8;">
+                            Example: ?file=flexicutter.stl
+                        </p>
                     </div>
                 `;
                 return;
             }
 
-            // Construct file path - supports both local media folder and GitHub URLs
+            // Construct file path - supports both GitHub URLs and local files
             let fileUrl;
             if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
                 // Full URL provided - convert GitHub blob to raw if needed
                 fileUrl = fileName.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
             } else {
-                // Local file in media folder
-                fileUrl = `media/${fileName}`;
+                // Try GitHub raw URL first, then local media folder
+                // Default GitHub path for your repository
+                fileUrl = `https://raw.githubusercontent.com/piodeer/LinkTree/main/media/${fileName}`;
             }
 
             // Try to get file size
             fetch(fileUrl, { method: 'HEAD' })
+                .then(response => {
+                    if (!response.ok) {
+                        // Try local media folder as fallback
+                        if (!fileName.startsWith('http')) {
+                            fileUrl = `media/${fileName}`;
+                            return fetch(fileUrl, { method: 'HEAD' });
+                        }
+                        throw new Error('File not found');
+                    }
+                    return response;
+                })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('File not found');
@@ -642,7 +666,7 @@
                     const fileSizeFormatted = fileSize ? formatFileSize(fileSize) : 'Unknown size';
                     
                     // Check if file is STL
-                    const isSTL = fileName.toLowerCase().endsWith('.stl');
+                    const isSTL = fileName.toLowerCase().endsWith('.stl') || fileName.toLowerCase().includes('.stl');
                     
                     let previewHTML = '';
                     if (isSTL) {
@@ -653,7 +677,6 @@
                                     <div class="loading-preview">Loading 3D preview...</div>
                                 </div>
                                 <div class="file-info">
-                                    <div class="file-name">${escapeHtml(fileName)}</div>
                                     <div class="file-size">${fileSizeFormatted}</div>
                                 </div>
                             </div>
@@ -662,7 +685,6 @@
                         previewHTML = `
                             <div class="preview-container">
                                 <div class="file-info">
-                                    <div class="file-name">${escapeHtml(fileName)}</div>
                                     <div class="file-size">${fileSizeFormatted}</div>
                                 </div>
                             </div>
@@ -670,7 +692,7 @@
                     }
 
                     fileContainer.innerHTML = previewHTML + `
-                        <a href="${fileUrl}" download="${fileName}" class="download-button" id="downloadButton">
+                        <a href="${fileUrl}" download="${fileName.split('/').pop()}" class="download-button" id="downloadButton">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
                             </svg>
@@ -687,7 +709,6 @@
                     const downloadButton = document.getElementById('downloadButton');
                     if (downloadButton) {
                         downloadButton.addEventListener('click', function() {
-                            // Track download if needed
                             console.log('Download started:', fileName);
                         });
                     }
@@ -699,7 +720,7 @@
                             <h3>File not found</h3>
                             <p>The requested file "${escapeHtml(fileName)}" could not be found.</p>
                             <p style="margin-top: 16px; font-size: 12px; opacity: 0.8;">
-                                Please check that the file exists in the media folder.
+                                Please check that the file exists in the GitHub repository or media folder.
                             </p>
                         </div>
                     `;
@@ -731,14 +752,12 @@
         function loadSTLPreview(fileUrl) {
             const previewContainer = document.getElementById('stlPreview');
             if (!previewContainer || typeof THREE === 'undefined') {
-                // Fallback if libraries didn't load
                 if (previewContainer) {
                     previewContainer.innerHTML = '<div class="loading-preview">3D preview unavailable</div>';
                 }
                 return;
             }
 
-            // Use STLLoader from THREE namespace
             if (!THREE.STLLoader) {
                 previewContainer.innerHTML = '<div class="loading-preview">3D preview unavailable</div>';
                 return;
@@ -776,9 +795,21 @@
             loader.load(
                 fileUrl,
                 function(geometry) {
+                    // Check if geometry is valid
+                    if (!geometry || !geometry.attributes || !geometry.attributes.position) {
+                        console.error('Invalid geometry loaded');
+                        previewContainer.innerHTML = '<div class="loading-preview">Failed to parse 3D model</div>';
+                        return;
+                    }
+                    
                     // Center geometry
                     geometry.center();
                     geometry.computeVertexNormals();
+                    
+                    // Ensure normals exist
+                    if (!geometry.attributes.normal) {
+                        geometry.computeVertexNormals();
+                    }
 
                     // Create material with site colors
                     const material = new THREE.MeshPhongMaterial({
@@ -803,6 +834,12 @@
                     camera.position.set(center.x, center.y, center.z + cameraZ);
                     camera.lookAt(center);
 
+                    // Clear loading message and start animation
+                    const loadingMsg = previewContainer.querySelector('.loading-preview');
+                    if (loadingMsg) {
+                        loadingMsg.remove();
+                    }
+                    
                     // Auto-rotate animation
                     let angle = 0;
                     function animate() {
@@ -822,12 +859,17 @@
                     window.addEventListener('resize', handleResize);
                 },
                 function(xhr) {
-                    const percentComplete = (xhr.loaded / xhr.total) * 100;
-                    previewContainer.innerHTML = `<div class="loading-preview">Loading 3D model... ${Math.round(percentComplete)}%</div>`;
+                    if (xhr.lengthComputable) {
+                        const percentComplete = (xhr.loaded / xhr.total) * 100;
+                        const loadingText = previewContainer.querySelector('.loading-preview');
+                        if (loadingText) {
+                            loadingText.textContent = `Loading 3D model... ${Math.round(percentComplete)}%`;
+                        }
+                    }
                 },
                 function(error) {
                     console.error('Error loading STL:', error);
-                    previewContainer.innerHTML = '<div class="loading-preview">Failed to load 3D preview</div>';
+                    previewContainer.innerHTML = '<div class="loading-preview">Failed to load 3D preview. Please check console for details.</div>';
                 }
             );
         }
