@@ -840,12 +840,15 @@
                         loadingMsg.remove();
                     }
                     
-                    // Auto-rotate animation
-                    let angle = 0;
+                    // Auto-rotate animation - rotate around X and Y axis for better view
+                    let angleY = 0;
+                    let angleX = 0;
                     function animate() {
                         requestAnimationFrame(animate);
-                        angle += 0.005;
-                        mesh.rotation.y = angle;
+                        angleY += 0.005;
+                        angleX += 0.003;
+                        mesh.rotation.y = angleY;
+                        mesh.rotation.x = angleX;
                         renderer.render(scene, camera);
                     }
                     animate();
