@@ -372,6 +372,56 @@
             color: #a0d2ff;
             font-size: 14px;
             opacity: 0.8;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(100, 181, 246, 0.2);
+            border-top: 4px solid #a0d2ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-progress {
+            margin-top: 15px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .loading-bar-container {
+            width: 200px;
+            height: 4px;
+            background: rgba(100, 181, 246, 0.2);
+            border-radius: 2px;
+            margin: 15px auto 0;
+            overflow: hidden;
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #64b5f6, #a0d2ff, #64b5f6);
+            background-size: 200% 100%;
+            border-radius: 2px;
+            animation: loadingBar 1.5s ease-in-out infinite, loadingProgress 0.3s ease;
+            width: 0%;
+        }
+
+        @keyframes loadingBar {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes loadingProgress {
+            from { width: 0%; }
         }
 
         .file-info {
@@ -825,7 +875,14 @@
                             <div class="preview-container">
                                 <div class="preview-title">3D Model Preview</div>
                                 <div class="stl-preview" id="stlPreview">
-                                    <div class="loading-preview">Loading 3D preview...</div>
+                                    <div class="loading-preview">
+                                        <div class="loading-spinner"></div>
+                                        <div>Loading 3D preview...</div>
+                                        <div class="loading-bar-container">
+                                            <div class="loading-bar" id="loadingBar"></div>
+                                        </div>
+                                        <div class="loading-progress" id="loadingProgress">0%</div>
+                                    </div>
                                 </div>
                                 <div class="file-info">
                                     <div class="file-size">${fileSizeFormatted}</div>
@@ -1056,9 +1113,21 @@
                 function(xhr) {
                     if (xhr.lengthComputable) {
                         const percentComplete = (xhr.loaded / xhr.total) * 100;
-                        const loadingText = previewContainer.querySelector('.loading-preview');
-                        if (loadingText) {
-                            loadingText.textContent = `Loading 3D model... ${Math.round(percentComplete)}%`;
+                        const loadingBar = previewContainer.querySelector('#loadingBar');
+                        const loadingProgress = previewContainer.querySelector('#loadingProgress');
+                        
+                        if (loadingBar) {
+                            loadingBar.style.width = percentComplete + '%';
+                        }
+                        if (loadingProgress) {
+                            loadingProgress.textContent = Math.round(percentComplete) + '%';
+                        }
+                    } else {
+                        // Show indeterminate progress if total is unknown
+                        const loadingBar = previewContainer.querySelector('#loadingBar');
+                        if (loadingBar && loadingBar.style.width === '0%') {
+                            loadingBar.style.width = '60%';
+                            loadingBar.style.animation = 'loadingBar 1.5s ease-in-out infinite';
                         }
                     }
                 },
