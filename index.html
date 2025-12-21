@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download File - piodeer</title>
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/piodeer/LinkTree/392c8bf5eb91d04289f23203c18cde1a75bd345f/media/logo.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // STLLoader inline implementation (simplified version)
+        (function() {
+            if (typeof THREE === 'undefined') return;
+            
+            THREE.STLLoader = function() {
+                this.load = function(url, onLoad, onProgress, onError) {
+                    const request = new XMLHttpRequest();
+                    request.open('GET', url, true);
+                    request.responseType = 'arraybuffer';
+                    
+                    request.onprogress = function(event) {
+                        if (onProgress && event.lengthComputable) {
+                            onProgress({
+                                loaded: event.loaded,
+                                total: event.total
+                            });
+                        }
+                    };
+                    
+                    request.onload = function() {
+                        if (request.status === 200) {
+                            try {
+                                const geometry = parseSTL(request.response);
+                                if (onLoad) onLoad(geometry);
+                            } catch (e) {
+                                if (onError) onError(e);
+                            }
+                        } else {
+                            if (onError) onError(new Error('Failed to load file'));
+                        }
+                    };
+                    
+                    request.onerror = function() {
+                        if (onError) onError(new Error('Network error'));
+                    };
+                    
+                    request.send();
+                };
+            };
+            
+            function parseSTL(buffer) {
+                const view = new DataView(buffer);
+                const isBinary = buffer.byteLength > 80 && view.getUint32(80, true) !== 0;
+                
+                if (isBinary) {
+                    return parseBinarySTL(view);
+                } else {
+                    return parseASCIISTL(buffer);
+                }
+            }
+            
+            function parseBinarySTL(view) {
+                const numTriangles = view.getUint32(80, true);
+                const geometry = new THREE.BufferGeometry();
+                const vertices = [];
+                const normals = [];
+                
+                let offset = 84;
+                for (let i = 0; i < numTriangles; i++) {
+                    const normal = new THREE.Vector3(
+                        view.getFloat32(offset, true),
+                        view.getFloat32(offset + 4, true),
+                        view.getFloat32(offset + 8, true)
+                    );
+                    offset += 12;
+                    
+                    for (let j = 0; j < 3; j++) {
+                        vertices.push(
+                            view.getFloat32(offset, true),
+                            view.getFloat32(offset + 4, true),
+                            view.getFloat32(offset + 8, true)
+                        );
+                        normals.push(normal.x, normal.y, normal.z);
+                        offset += 12;
+                    }
+                    offset += 2; // Skip attribute byte count
+                }
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                return geometry;
+            }
+            
+            function parseASCIISTL(buffer) {
+                const text = new TextDecoder().decode(buffer);
+                const lines = text.split('\n');
+                const vertices = [];
+                const normals = [];
+                let currentNormal = new THREE.Vector3();
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line.startsWith('facet normal')) {
+                        const parts = line.split(/\s+/);
+                        currentNormal.set(
+                            parseFloat(parts[2]),
+                            parseFloat(parts[3]),
+                            parseFloat(parts[4])
+                        );
+                    } else if (line.startsWith('vertex')) {
+                        const parts = line.split(/\s+/);
+                        vertices.push(
+                            parseFloat(parts[1]),
+                            parseFloat(parts[2]),
+                            parseFloat(parts[3])
+                        );
+                        normals.push(currentNormal.x, currentNormal.y, currentNormal.z);
+                    }
+                }
+                
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                return geometry;
+            }
+        })();
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(-45deg, #1a1a2e, #16213e, #0f3460, #16213e);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Floating Particles Background */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: float 20s infinite ease-in-out;
+            opacity: 0;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(100vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.5;
+            }
+            90% {
+                opacity: 0.5;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px) scale(1);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            animation: fadeIn 0.6s ease-in;
+            position: relative;
+            z-index: 1;
+            perspective: 1000px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .avatar {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            background: #ffffff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px rgba(100, 181, 246, 0.3),
+                        0 0 0 8px rgba(255, 255, 255, 0.05),
+                        0 0 0 12px rgba(255, 255, 255, 0.03);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+            animation: gentlePulse 3s ease-in-out infinite, welcomeBounce 2s ease-out;
+            transform-style: preserve-3d;
+        }
+
+        @keyframes gentlePulse {
+            0%, 100% {
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 40px rgba(100, 181, 246, 0.3);
+            }
+            50% {
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 60px rgba(100, 181, 246, 0.5);
+            }
+        }
+
+        @keyframes welcomeBounce {
+            0% {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2) rotate(10deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .avatar img {
+            width: 85%;
+            height: 85%;
+            object-fit: contain;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .avatar:hover {
+            transform: translateZ(20px) scale(1.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 
+                        0 0 100px rgba(100, 181, 246, 0.8),
+                        0 0 0 8px rgba(255, 255, 255, 0.1),
+                        0 0 0 16px rgba(255, 255, 255, 0.05);
+        }
+
+        .welcome-text {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+            background: linear-gradient(45deg, #ffffff, #a0d2ff, #ffffff, #64b5f6);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s linear infinite, welcomeSlideIn 1s ease-out 0.3s backwards;
+        }
+
+        @keyframes shimmer {
+            to {
+                background-position: 300% center;
+            }
+        }
+
+        @keyframes welcomeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .community-text {
+            font-size: 18px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            font-weight: 500;
+            animation: fadeInUp 1s ease-out 0.6s backwards;
+            color: #a0d2ff;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 0.9;
+                transform: translateY(0);
+            }
+        }
+
+        .preview-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 32px;
+            animation: fadeInUp 1s ease-out 0.9s backwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #a0d2ff;
+            text-align: center;
+        }
+
+        .stl-preview {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.8), rgba(22, 33, 62, 0.8));
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .stl-preview canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .loading-preview {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #a0d2ff;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .file-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #a0d2ff;
+            word-break: break-all;
+        }
+
+        .file-size {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .download-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            max-width: 300px;
+            padding: 20px 32px;
+            background: linear-gradient(135deg, rgba(100, 181, 246, 0.3), rgba(100, 181, 246, 0.2));
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(100, 181, 246, 0.5);
+            border-radius: 16px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 1s ease-out 1.2s backwards, buttonPulse 2s ease-in-out infinite 2.2s;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3),
+                        0 0 30px rgba(100, 181, 246, 0.3);
+        }
+
+        @keyframes buttonPulse {
+            0%, 100% {
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3),
+                            0 0 30px rgba(100, 181, 246, 0.3);
+            }
+            50% {
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3),
+                            0 0 50px rgba(100, 181, 246, 0.6);
+            }
+        }
+
+        .download-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .download-button:hover::before {
+            left: 100%;
+        }
+
+        .download-button:hover {
+            transform: translateY(-4px) scale(1.05);
+            background: linear-gradient(135deg, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.3));
+            border-color: rgba(100, 181, 246, 0.8);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4),
+                        0 0 60px rgba(100, 181, 246, 0.6);
+        }
+
+        .download-button:active {
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .download-button svg {
+            width: 24px;
+            height: 24px;
+            animation: downloadIconBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes downloadIconBounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .download-button:hover svg {
+            animation: downloadIconSpin 0.5s ease;
+        }
+
+        @keyframes downloadIconSpin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            animation: fadeInUp 1s ease-out 1.5s backwards;
+        }
+
+        .back-link:hover {
+            color: #a0d2ff;
+            transform: translateX(-5px);
+        }
+
+        .error-message {
+            background: rgba(255, 87, 87, 0.2);
+            border: 1px solid rgba(255, 87, 87, 0.4);
+            border-radius: 16px;
+            padding: 24px;
+            color: #ff5757;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        @media (max-width: 480px) {
+            .welcome-text {
+                font-size: 28px;
+            }
+
+            .community-text {
+                font-size: 16px;
+            }
+
+            .slogan-text {
+                font-size: 13px;
+            }
+
+            .stl-preview {
+                height: 300px;
+            }
+
+            .download-button {
+                padding: 18px 24px;
+                font-size: 16px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .avatar {
+                animation: none;
+            }
+            .welcome-text {
+                animation: none;
+            }
+            .community-text,
+            .slogan-text,
+            .file-info,
+            .download-button,
+            .back-link {
+                animation: none;
+            }
+            .download-button:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <div class="avatar">
+            <img src="https://raw.githubusercontent.com/piodeer/LinkTree/392c8bf5eb91d04289f23203c18cde1a75bd345f/media/logo.png" alt="piodeer logo">
+        </div>
+        
+        <h1 class="welcome-text">Thank You!</h1>
+        <p class="community-text">Thanks for your interest in my work! 🚀</p>
+        <p class="slogan-text">Download your 3D model below</p>
+
+        <div id="fileContainer">
+            <div class="loading">Loading file information</div>
+        </div>
+
+        <a href="index%20(2).html" class="back-link">← Back to Links</a>
+    </div>
+
+    <script>
+        // Floating Particles Animation
+        (function() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 15;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                const size = Math.random() * 4 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        })();
+
+        // Get file parameter from URL
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            const results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        // Load and display file information
+        (function() {
+            const fileContainer = document.getElementById('fileContainer');
+            const fileName = getUrlParameter('file');
+
+            if (!fileName) {
+                fileContainer.innerHTML = `
+                    <div class="error-message">
+                        <h3>No file specified</h3>
+                        <p>Please provide a file name in the URL parameter.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Construct file path - supports both local media folder and GitHub URLs
+            let fileUrl;
+            if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
+                // Full URL provided - convert GitHub blob to raw if needed
+                fileUrl = fileName.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+            } else {
+                // Local file in media folder
+                fileUrl = `media/${fileName}`;
+            }
+
+            // Try to get file size
+            fetch(fileUrl, { method: 'HEAD' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('File not found');
+                    }
+
+                    const fileSize = response.headers.get('content-length');
+                    const fileSizeFormatted = fileSize ? formatFileSize(fileSize) : 'Unknown size';
+                    
+                    // Check if file is STL
+                    const isSTL = fileName.toLowerCase().endsWith('.stl');
+                    
+                    let previewHTML = '';
+                    if (isSTL) {
+                        previewHTML = `
+                            <div class="preview-container">
+                                <div class="preview-title">3D Model Preview</div>
+                                <div class="stl-preview" id="stlPreview">
+                                    <div class="loading-preview">Loading 3D preview...</div>
+                                </div>
+                                <div class="file-info">
+                                    <div class="file-name">${escapeHtml(fileName)}</div>
+                                    <div class="file-size">${fileSizeFormatted}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        previewHTML = `
+                            <div class="preview-container">
+                                <div class="file-info">
+                                    <div class="file-name">${escapeHtml(fileName)}</div>
+                                    <div class="file-size">${fileSizeFormatted}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    fileContainer.innerHTML = previewHTML + `
+                        <a href="${fileUrl}" download="${fileName}" class="download-button" id="downloadButton">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
+                            </svg>
+                            <span>Download ${isSTL ? 'Model' : 'File'}</span>
+                        </a>
+                    `;
+
+                    // Load STL preview if it's an STL file
+                    if (isSTL) {
+                        loadSTLPreview(fileUrl);
+                    }
+
+                    // Add click tracking (optional)
+                    const downloadButton = document.getElementById('downloadButton');
+                    if (downloadButton) {
+                        downloadButton.addEventListener('click', function() {
+                            // Track download if needed
+                            console.log('Download started:', fileName);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading file:', error);
+                    fileContainer.innerHTML = `
+                        <div class="error-message">
+                            <h3>File not found</h3>
+                            <p>The requested file "${escapeHtml(fileName)}" could not be found.</p>
+                            <p style="margin-top: 16px; font-size: 12px; opacity: 0.8;">
+                                Please check that the file exists in the media folder.
+                            </p>
+                        </div>
+                    `;
+                });
+        })();
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Load and display STL preview
+        function loadSTLPreview(fileUrl) {
+            const previewContainer = document.getElementById('stlPreview');
+            if (!previewContainer || typeof THREE === 'undefined') {
+                // Fallback if libraries didn't load
+                if (previewContainer) {
+                    previewContainer.innerHTML = '<div class="loading-preview">3D preview unavailable</div>';
+                }
+                return;
+            }
+
+            // Use STLLoader from THREE namespace
+            if (!THREE.STLLoader) {
+                previewContainer.innerHTML = '<div class="loading-preview">3D preview unavailable</div>';
+                return;
+            }
+
+            // Scene setup
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            // Camera
+            const camera = new THREE.PerspectiveCamera(75, previewContainer.offsetWidth / previewContainer.offsetHeight, 0.1, 1000);
+            camera.position.z = 100;
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(previewContainer.offsetWidth, previewContainer.offsetHeight);
+            renderer.setClearColor(0x1a1a2e, 1);
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(renderer.domElement);
+
+            // Lighting with site colors
+            const ambientLight = new THREE.AmbientLight(0x64b5f6, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight1 = new THREE.DirectionalLight(0xa0d2ff, 0.8);
+            directionalLight1.position.set(1, 1, 1);
+            scene.add(directionalLight1);
+
+            const directionalLight2 = new THREE.DirectionalLight(0x64b5f6, 0.4);
+            directionalLight2.position.set(-1, -1, -1);
+            scene.add(directionalLight2);
+
+            // Load STL file
+            const loader = new THREE.STLLoader();
+            loader.load(
+                fileUrl,
+                function(geometry) {
+                    // Center geometry
+                    geometry.center();
+                    geometry.computeVertexNormals();
+
+                    // Create material with site colors
+                    const material = new THREE.MeshPhongMaterial({
+                        color: 0xa0d2ff,
+                        specular: 0x64b5f6,
+                        shininess: 100,
+                        emissive: 0x16213e,
+                        emissiveIntensity: 0.2
+                    });
+
+                    const mesh = new THREE.Mesh(geometry, material);
+                    scene.add(mesh);
+
+                    // Calculate camera position based on geometry bounds
+                    const box = new THREE.Box3().setFromObject(mesh);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const fov = camera.fov * (Math.PI / 180);
+                    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                    cameraZ *= 1.5;
+                    camera.position.set(center.x, center.y, center.z + cameraZ);
+                    camera.lookAt(center);
+
+                    // Auto-rotate animation
+                    let angle = 0;
+                    function animate() {
+                        requestAnimationFrame(animate);
+                        angle += 0.005;
+                        mesh.rotation.y = angle;
+                        renderer.render(scene, camera);
+                    }
+                    animate();
+
+                    // Handle window resize
+                    function handleResize() {
+                        camera.aspect = previewContainer.offsetWidth / previewContainer.offsetHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(previewContainer.offsetWidth, previewContainer.offsetHeight);
+                    }
+                    window.addEventListener('resize', handleResize);
+                },
+                function(xhr) {
+                    const percentComplete = (xhr.loaded / xhr.total) * 100;
+                    previewContainer.innerHTML = `<div class="loading-preview">Loading 3D model... ${Math.round(percentComplete)}%</div>`;
+                },
+                function(error) {
+                    console.error('Error loading STL:', error);
+                    previewContainer.innerHTML = '<div class="loading-preview">Failed to load 3D preview</div>';
+                }
+            );
+        }
+    </script>
+</body>
+</html>
