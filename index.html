@@ -778,13 +778,21 @@
 
             // Construct file path - supports both GitHub URLs and local files
             let fileUrl;
+            let cleanFileName = fileName;
+            
+            // Remove leading slash if present
+            if (cleanFileName.startsWith('/')) {
+                cleanFileName = cleanFileName.substring(1);
+            }
+            
             if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
                 // Full URL provided - convert GitHub blob to raw if needed
                 fileUrl = fileName.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
             } else {
-                // Try GitHub raw URL first, then local media folder
-                // Default GitHub path for your repository
-                fileUrl = `https://raw.githubusercontent.com/piodeer/LinkTree/main/media/${fileName}`;
+                // Always search in media folder on GitHub
+                // Remove any path components and use only the filename
+                const justFileName = cleanFileName.split('/').pop();
+                fileUrl = `https://raw.githubusercontent.com/piodeer/LinkTree/main/media/${justFileName}`;
             }
 
             // Try to get file size
@@ -793,7 +801,7 @@
                     if (!response.ok) {
                         // Try local media folder as fallback
                         if (!fileName.startsWith('http')) {
-                            fileUrl = `media/${fileName}`;
+                            fileUrl = `media/${cleanFileName.split('/').pop()}`;
                             return fetch(fileUrl, { method: 'HEAD' });
                         }
                         throw new Error('File not found');
@@ -809,7 +817,7 @@
                     const fileSizeFormatted = fileSize ? formatFileSize(fileSize) : 'Unknown size';
                     
                     // Check if file is STL
-                    const isSTL = fileName.toLowerCase().endsWith('.stl') || fileName.toLowerCase().includes('.stl');
+                    const isSTL = cleanFileName.toLowerCase().endsWith('.stl') || cleanFileName.toLowerCase().includes('.stl');
                     
                     let previewHTML = '';
                     if (isSTL) {
@@ -835,7 +843,7 @@
                     }
 
                     fileContainer.innerHTML = previewHTML + `
-                        <a href="${fileUrl}" download="${fileName.split('/').pop()}" class="download-button" id="downloadButton">
+                        <a href="${fileUrl}" download="${cleanFileName.split('/').pop()}" class="download-button" id="downloadButton">
                             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
                             </svg>
@@ -854,7 +862,7 @@
                     const licenseAccept = document.getElementById('licenseAccept');
                     const licenseCancel = document.getElementById('licenseCancel');
                     let downloadUrl = fileUrl;
-                    let downloadFileName = fileName.split('/').pop();
+                    let downloadFileName = cleanFileName.split('/').pop();
 
                     if (downloadButton) {
                         downloadButton.addEventListener('click', function(e) {
