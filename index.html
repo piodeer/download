@@ -1028,11 +1028,21 @@
                         <div class="loading-spinner"></div>
                         <div>Loading 3D preview...</div>
                         <div class="loading-bar-container">
-                            <div class="loading-bar" id="loadingBar"></div>
+                            <div class="loading-bar" id="loadingBar" style="width: 0%;"></div>
                         </div>
                         <div class="loading-progress" id="loadingProgress">0%</div>
                     </div>
                 `;
+            } else {
+                // Ensure progress elements exist and are initialized
+                const loadingBar = previewContainer.querySelector('#loadingBar');
+                const loadingProgress = previewContainer.querySelector('#loadingProgress');
+                if (loadingBar) {
+                    loadingBar.style.width = '0%';
+                }
+                if (loadingProgress) {
+                    loadingProgress.textContent = '0%';
+                }
             }
 
             // Scene setup
@@ -1150,23 +1160,33 @@
                     window.addEventListener('resize', handleResize);
                 },
                 function(xhr) {
-                    if (xhr.lengthComputable) {
-                        const percentComplete = (xhr.loaded / xhr.total) * 100;
-                        const loadingBar = previewContainer.querySelector('#loadingBar');
-                        const loadingProgress = previewContainer.querySelector('#loadingProgress');
+                    const loadingBar = previewContainer.querySelector('#loadingBar');
+                    const loadingProgress = previewContainer.querySelector('#loadingProgress');
+                    
+                    if (xhr.lengthComputable && xhr.total > 0) {
+                        const percentComplete = Math.min(100, (xhr.loaded / xhr.total) * 100);
                         
                         if (loadingBar) {
                             loadingBar.style.width = percentComplete + '%';
+                            loadingBar.style.animation = 'loadingBar 1.5s ease-in-out infinite';
                         }
                         if (loadingProgress) {
                             loadingProgress.textContent = Math.round(percentComplete) + '%';
                         }
                     } else {
                         // Show indeterminate progress if total is unknown
-                        const loadingBar = previewContainer.querySelector('#loadingBar');
-                        if (loadingBar && loadingBar.style.width === '0%') {
-                            loadingBar.style.width = '60%';
-                            loadingBar.style.animation = 'loadingBar 1.5s ease-in-out infinite';
+                        if (loadingBar) {
+                            const currentWidth = loadingBar.style.width;
+                            if (!currentWidth || currentWidth === '0%') {
+                                loadingBar.style.width = '60%';
+                                loadingBar.style.animation = 'loadingBar 1.5s ease-in-out infinite';
+                            }
+                        }
+                        if (loadingProgress) {
+                            // Show loading indicator
+                            if (!loadingProgress.textContent || loadingProgress.textContent === '0%') {
+                                loadingProgress.textContent = 'Loading...';
+                            }
                         }
                     }
                 },
