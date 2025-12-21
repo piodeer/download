@@ -371,9 +371,11 @@
             transform: translate(-50%, -50%);
             color: #a0d2ff;
             font-size: 14px;
-            opacity: 0.8;
+            opacity: 1;
             text-align: center;
             z-index: 10;
+            width: 100%;
+            pointer-events: none;
         }
 
         .loading-spinner {
@@ -1008,8 +1010,29 @@
             }
 
             if (!THREE.STLLoader) {
-                previewContainer.innerHTML = '<div class="loading-preview">3D preview unavailable</div>';
+                const loadingHTML = `
+                    <div class="loading-preview">
+                        <div class="loading-spinner"></div>
+                        <div>3D preview unavailable</div>
+                    </div>
+                `;
+                previewContainer.innerHTML = loadingHTML;
                 return;
+            }
+            
+            // Ensure loading animation is visible
+            const existingLoading = previewContainer.querySelector('.loading-preview');
+            if (!existingLoading) {
+                previewContainer.innerHTML = `
+                    <div class="loading-preview">
+                        <div class="loading-spinner"></div>
+                        <div>Loading 3D preview...</div>
+                        <div class="loading-bar-container">
+                            <div class="loading-bar" id="loadingBar"></div>
+                        </div>
+                        <div class="loading-progress" id="loadingProgress">0%</div>
+                    </div>
+                `;
             }
 
             // Scene setup
@@ -1020,12 +1043,20 @@
             const camera = new THREE.PerspectiveCamera(75, previewContainer.offsetWidth / previewContainer.offsetHeight, 0.1, 1000);
             camera.position.z = 100;
 
-            // Renderer
+            // Renderer - create but keep loading animation visible
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(previewContainer.offsetWidth, previewContainer.offsetHeight);
             renderer.setClearColor(0x1a1a2e, 1);
-            previewContainer.innerHTML = '';
-            previewContainer.appendChild(renderer.domElement);
+            // Don't clear container - keep loading animation visible
+            const canvas = renderer.domElement;
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.zIndex = '1';
+            canvas.style.opacity = '0'; // Hidden until model loads
+            previewContainer.appendChild(canvas);
 
             // Lighting with site colors
             const ambientLight = new THREE.AmbientLight(0x64b5f6, 0.6);
@@ -1083,10 +1114,18 @@
                     camera.position.set(center.x, center.y, center.z + cameraZ);
                     camera.lookAt(center);
 
-                    // Clear loading message and start animation
+                    // Show canvas and hide loading animation
+                    canvas.style.transition = 'opacity 0.5s ease';
+                    canvas.style.opacity = '1';
+                    
                     const loadingMsg = previewContainer.querySelector('.loading-preview');
                     if (loadingMsg) {
-                        loadingMsg.remove();
+                        // Fade out loading message
+                        loadingMsg.style.opacity = '0';
+                        loadingMsg.style.transition = 'opacity 0.5s ease';
+                        setTimeout(() => {
+                            loadingMsg.style.display = 'none';
+                        }, 500);
                     }
                     
                     // Auto-rotate animation - rotate around X and Y axis for better view
