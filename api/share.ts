@@ -1,9 +1,12 @@
-export const config = { runtime: 'edge' };
+export const config = { 
+  runtime: 'edge',
+  path: '/api/share'
+};
 
 export default async function handler(req: Request) {
   const url = new URL(req.url);
   const file = (url.searchParams.get('file') || '').trim();
-
+  
   // Clean up filename
   const cleanFileName = file.replace(/^\/+/, '');
   const baseFileName = cleanFileName ? cleanFileName.split('/').pop() || cleanFileName : '';
@@ -12,7 +15,7 @@ export default async function handler(req: Request) {
   // Determine image URL based on file parameter
   let imageUrl = 'https://raw.githubusercontent.com/piodeer/LinkTree/main/media/logo.jpg'; // Default fallback
   
-  if (file) {
+  if (file && baseWithoutExt) {
     if (file.startsWith('http://') || file.startsWith('https://')) {
       // Full URL provided
       imageUrl = file.replace(/\.[^/.]+$/, '.jpg');
@@ -49,13 +52,15 @@ export default async function handler(req: Request) {
 </head>
 <body>
 <script>
-// Redirect to main page with file parameter
-const file = ${JSON.stringify(file)};
-if (file) {
-  window.location.href = '/index.html?file=' + encodeURIComponent(file);
-} else {
-  window.location.href = '/index.html';
-}
+// Small delay to ensure meta tags are read by crawlers
+setTimeout(function() {
+  const file = ${JSON.stringify(file)};
+  if (file) {
+    window.location.href = '/index.html?file=' + encodeURIComponent(file);
+  } else {
+    window.location.href = '/index.html';
+  }
+}, 100);
 </script>
 <noscript>
 <p>Redirecting...</p>
@@ -83,5 +88,4 @@ function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, m => map[m]);
 }
-
 
