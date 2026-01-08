@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Download File - piodeer</title>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/piodeer/LinkTree/392c8bf5eb91d04289f23203c18cde1a75bd345f/media/logo.png">
+    <!-- Open Graph Meta Tags - Will be updated by JavaScript for browsers, but Instagram will use the image from URL pattern -->
+    <meta property="og:title" content="3D Model Download - piodeer">
+    <meta property="og:description" content="Preview and download your 3D model.">
+    <meta property="og:type" content="website">
+    <!-- Instagram will extract the file parameter and use the corresponding .jpg image -->
+    <meta property="og:image" content="https://raw.githubusercontent.com/piodeer/LinkTree/main/media/logo.jpg" id="og-image">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="" id="og-url">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="3D Model Download - piodeer">
+    <meta name="twitter:description" content="Preview and download your 3D model.">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/piodeer/LinkTree/main/media/logo.jpg" id="twitter-image">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         // STLLoader inline implementation
@@ -810,6 +824,29 @@
             return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
         }
 
+        // Update Open Graph / Twitter image dynamically to match the model file (fallback: logo)
+        function setOgTags(imageUrl) {
+            const absoluteImage = imageUrl;
+            const tags = [
+                { selector: 'meta[property="og:image"]', content: absoluteImage },
+                { selector: 'meta[name="twitter:image"]', content: absoluteImage },
+                { selector: 'meta[property="og:url"]', content: window.location.href }
+            ];
+            tags.forEach(tag => {
+                let el = document.querySelector(tag.selector);
+                if (!el) {
+                    el = document.createElement('meta');
+                    if (tag.selector.includes('og:')) {
+                        el.setAttribute('property', tag.selector.match(/"([^"]+)"/)[1]);
+                    } else {
+                        el.setAttribute('name', tag.selector.match(/"([^"]+)"/)[1]);
+                    }
+                    document.head.appendChild(el);
+                }
+                el.setAttribute('content', tag.content);
+            });
+        }
+
         // Load and display file information
         (function() {
             const fileContainer = document.getElementById('fileContainer');
@@ -836,6 +873,14 @@
             if (cleanFileName.startsWith('/')) {
                 cleanFileName = cleanFileName.substring(1);
             }
+
+            // Derive preview image URL: same folder/name as model, but .jpg
+            const baseFileName = cleanFileName.split('/').pop();
+            const baseWithoutExt = baseFileName.replace(/\.[^/.]+$/, '');
+            const imageUrl = fileName.startsWith('http://') || fileName.startsWith('https://')
+                ? fileName.replace(/\.[^/.]+$/, '.jpg')
+                : `https://raw.githubusercontent.com/piodeer/LinkTree/main/media/${baseWithoutExt}.jpg`;
+            setOgTags(imageUrl);
             
             if (fileName.startsWith('http://') || fileName.startsWith('https://')) {
                 // Full URL provided - convert GitHub blob to raw if needed
