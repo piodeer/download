@@ -1,9 +1,8 @@
 {
-  "routes": [
+  "rewrites": [
     {
-      "src": "/share",
-      "dest": "/api/share.ts"
+      "source": "/share",
+      "destination": "/api/share"
     }
   ]
 }
-
