@@ -1,0 +1,9 @@
+{
+  "routes": [
+    {
+      "src": "/share",
+      "dest": "/api/share.ts"
+    }
+  ]
+}
+
