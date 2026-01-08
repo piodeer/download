@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/share.ts": {
+      "runtime": "edge"
+    }
+  },
   "rewrites": [
     {
       "source": "/share",
@@ -6,3 +11,4 @@
     }
   ]
 }
+
