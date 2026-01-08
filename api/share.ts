@@ -1,11 +1,11 @@
 export const config = { 
-  runtime: 'edge',
-  path: '/api/share'
+  runtime: 'edge'
 };
 
 export default async function handler(req: Request) {
   const url = new URL(req.url);
   const file = (url.searchParams.get('file') || '').trim();
+  const debug = url.searchParams.get('debug') === 'true';
   
   // Clean up filename
   const cleanFileName = file.replace(/^\/+/, '');
@@ -51,6 +51,16 @@ export default async function handler(req: Request) {
 <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
 </head>
 <body>
+${debug ? `
+<div style="padding: 20px; font-family: Arial; background: #f0f0f0;">
+  <h2>Debug Mode - Meta Tags Preview</h2>
+  <p><strong>File:</strong> ${escapeHtml(file || 'none')}</p>
+  <p><strong>Image URL:</strong> ${escapeHtml(imageUrl)}</p>
+  <p><strong>Title:</strong> ${escapeHtml(title)}</p>
+  <hr>
+  <p><a href="/index.html${file ? '?file=' + encodeURIComponent(file) : ''}">Go to main page</a></p>
+</div>
+` : `
 <script>
 // Small delay to ensure meta tags are read by crawlers
 setTimeout(function() {
@@ -66,6 +76,7 @@ setTimeout(function() {
 <p>Redirecting...</p>
 <p>If you are not redirected, <a href="/index.html${file ? '?file=' + encodeURIComponent(file) : ''}">click here</a>.</p>
 </noscript>
+`}
 </body>
 </html>`;
 
